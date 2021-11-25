@@ -91,20 +91,79 @@ Par contre, il faut noter que l'utilisateur d'une session doit toujours être re
 
 ![](assets/img/task1_1.3.png)
 
-cookies envoyés - reçus d'une fois a l'autre à checker pour le diagramme !!!!
+Lors de la première requête, la webapp 1 attribue un cookie à l'utilisateur. Lors de la seconde requête, ce premier cookie est envoyé à la webapp 2. Celle-ci ne le reconnait pas et en attribue donc un nouveau à l'utilisateur. 
+
+Le cookie est donc changé à chaque fois, car les webapps ne reconnaissent pas les cookies attribués par l'autre. 
+
+![](assets/img/task1.3_diag_seq.jpeg)
 
 
 
+**1.4 Provide a screenshot of the summary report from JMeter**
+
+ ![](assets/img/task1_jmeter.png)
 
 
-```sequence
+
+**1.5 Stop the containers and re-run the test plan in JMeter. Explain what is happening when only one node remains active. Provide another sequence diagram using the same model as the previous one.**
+
+Nous arrêtons le conteneur s1 avec la commande :
+
+```bash
+$ docker stop s1
 ```
 
+Après son arrêt, nous relançons JMeter et nous obtenons le rapport suivant :
 
+![](assets/img/task1.5_jmeter_s2_only.png)
+
+Sur la capture ci-dessus, nous constatons que toutes les requêtes sont donc effectuées sur la webapp s2. Selon les tests manuels que nous avons pu faire, le compteur est bien incrémenté à chaque requête et le cookie utilisé reste systématiquement le même. 
+
+Le diagramme de séquence réalisé suite à cette tentative est le suivant : 
+
+![](assets/img/task_1.5_diagram_seq.jpeg)
+
+La webapp reconnait systématiquement le cookie qui est envoyé car c'est elle qui l'a attributé à la base. Il n'est jamais changé par une autre webapp et permet donc d'incrémenter le compteur `sessionViews`. 
 
 
 
 ## Tâche 2 - La persistence des sessions (sticky sessions)
+
+**2.1 There is different way to implement the sticky session. One possibility is to use the SERVERID provided by HAProxy. Another way is  to use the NODESESSID provided by the application. Briefly explain the difference between both approaches (provide a sequence diagram with cookies to show the difference).**
+
+- **Choose one of the both stickiness approach for the next tasks.**
+
+
+
+**2.2 Provide the modified `haproxy.cfg` file with a short explanation of the modifications you did to enable sticky session management.**
+
+
+
+**2.3 Explain what is the behavior when you open and refresh the URL http://192.168.42.42 in your browser. Add screenshots to complement your explanations. We expect that you take a deeper a look at session management.**
+
+
+
+**2.4 Provide a sequence diagram to explain what is happening when one requests the URL for the first time and then refreshes the page. We want to see what is happening with the cookie. We want to see the sequence of messages exchanged (1) between the browser and HAProxy and (2) between HAProxy and the nodes S1 and S2. We also want to see what is happening when a second browser is used.**
+
+
+
+**2.5 Provide a screenshot of JMeter's summary report. Is there a difference with this run and the run of Task 1?**
+
+- **Clear the results in JMeter.**
+
+  
+
+- **Now, update the JMeter script. Go in the HTTP Cookie Manager and ~~uncheck~~verify that the box `Clear cookies each iteration?` is unchecked.**
+
+  
+
+- **Go in `Thread Group` and update the `Number of threads`. Set the value to 2.**
+
+  
+
+**2.6 Provide a screenshot of JMeter's summary report. Give a short explanation of what the load balancer is doing.**
+
+
 
 ## Tâche 3 - Le drainage des connexions (drain mode)
 
