@@ -325,10 +325,45 @@ Puis, nous ouvrons une nouvelle page et nous atteignons également la node `s1`,
 
 ![](assets/img/taksk3_7-new_nav.png)
 
-
 ## Tâche 4 - Le mode dégradé avec Round Robin
 
+**4.1 Make sure a delay of 0 milliseconds is set on `s1`. Do a run to have a baseline to compare with in the next experiments.**
+
+
+
+**4.2 Set a delay of 250 milliseconds on `s1`. Relaunch a run with the JMeter script and explain what is happening.**
+
+
+
+**4.3 Set a delay of 2500 milliseconds on `s1`. Same than previous step.**
+
+
+
+**4.4 In the two previous steps, are there any errors? Why?**
+
+
+
+**4.5 Update the HAProxy configuration to add a weight to your nodes. For that, add `weight [1-256]` where the value of weight is between the two values (inclusive). Set `s1` to 2 and `s2` to 1. Redo a run with a 250ms delay.**
+
+
+
+**4.6 Now, what happens when the cookies are cleared between  each request and the delay is set to 250ms? We expect just one or two  sentence to summarize your observations of the behavior with/without  cookies.**
+
+
+
 ## Tâche 5 - Les stratégies de load balancing
+
+**5.1 Briefly explain the strategies you have chosen and why you have chosen them.**
+
+
+
+**5.2 Provide evidence that you have played with the two strategies (configuration done, screenshots, ...)**
+
+
+
+**5.3 Compare the two strategies and conclude which is the best for this lab (not necessary the best at all).**
+
+
 
 ## Conclusion 
 
