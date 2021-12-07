@@ -137,10 +137,33 @@ La webapp reconnait systématiquement le cookie qui est envoyé car c'est elle q
 
 **2.2 Provide the modified `haproxy.cfg` file with a short explanation of the modifications you did to enable sticky session management.**
 
+Source : https://www.haproxy.com/fr/blog/load-balancing-affinity-persistence-sticky-sessions-what-you-need-to-know/
+`
 
+    backend nodes
+
+    ...
+
+    cookie SERVERID insert indirect nocache
+
+    # Define the list of nodes to be in the balancing mechanism
+    # http://cbonte.github.io/haproxy-dconv/2.2/configuration.html#4-server
+    server s1 ${WEBAPP_1_IP}:3000 check cookie s1
+    server s2 ${WEBAPP_2_IP}:3000 check cookie s2`
+
+* `cookie SERVERID insert indirect nocache`
+  * Indique à HAProxy qu'il faut configurer un cookie SERVERID uniquement si l'utilisateur n'en a pas fourni un avec sa requête.
+* `check cookie s1` et `check cookie s2`
+  * Indique à HAProxy sur quel serveur rediriger l'utilisateur en fonction de son cookie.
 
 **2.3 Explain what is the behavior when you open and refresh the URL http://192.168.42.42 in your browser. Add screenshots to complement your explanations. We expect that you take a deeper a look at session management.**
 
+L'utilisateur est toujours redirigé vers la même webapp, une même session est utilisée pour toutes les requêtes de l'utilisateur.
+
+![](./assets/img/task2_3_1.png)
+![](./assets/img/task2_3_2.png)
+
+On peut voir ci-dessus que la session est bien identique pour les différentes requêtes d'un utilisateur. On voit aussi que le cookie SERVERID est bien présent afin d'indiquer au load balancer ou rediriger la requête (dans ce cas sur la webapp1).
 
 
 **2.4 Provide a sequence diagram to explain what is happening when one requests the URL for the first time and then refreshes the page. We want to see what is happening with the cookie. We want to see the sequence of messages exchanged (1) between the browser and HAProxy and (2) between HAProxy and the nodes S1 and S2. We also want to see what is happening when a second browser is used.**
@@ -149,20 +172,25 @@ La webapp reconnait systématiquement le cookie qui est envoyé car c'est elle q
 
 **2.5 Provide a screenshot of JMeter's summary report. Is there a difference with this run and the run of Task 1?**
 
+![](./assets/img/task2_5_1.png)
+
+Nous observons que toutes les requêtes ont été redirigées vers la même webapp et donc que le sticky session est implémenté correctement. C'est différement du cas de la task1 ou l'on était redirigé de manière uniforme sur les deux webapps.
+
 - **Clear the results in JMeter.**
-
-  
-
 - **Now, update the JMeter script. Go in the HTTP Cookie Manager and ~~uncheck~~verify that the box `Clear cookies each iteration?` is unchecked.**
-
-  
-
 - **Go in `Thread Group` and update the `Number of threads`. Set the value to 2.**
 
   
 
 **2.6 Provide a screenshot of JMeter's summary report. Give a short explanation of what the load balancer is doing.**
 
+![](./assets/img/task2_6_1.png)
+
+Nous avons configuré JMeter pour simuler l'envoi par deux utilisateurs de 1000 requêtes chacun. De plus les cookies ne sont pas reset à chaque nouvelle requête.
+
+Nous observons le résultat attendu:
+* Lors de sa première requête un des deux utililisateurs a été redirigé vers la webapp1. Lors des 999 requêtes suivantes il a été redirigé vers la même webapp.
+* Pour l'autre utilisateur, le scénario est identique mais avec la webapp2.
 
 
 ## Tâche 3 - Le drainage des connexions (drain mode)
