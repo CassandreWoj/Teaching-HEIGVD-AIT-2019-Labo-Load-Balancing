@@ -327,28 +327,48 @@ Puis, nous ouvrons une nouvelle page et nous atteignons également la node `s1`,
 
 ## Tâche 4 - Le mode dégradé avec Round Robin
 
-**4.1 Make sure a delay of 0 milliseconds is set on `s1`. Do a run to have a baseline to compare with in the next experiments.**
+**4.1 Make sure a delay of 0 milliseconds is set on s1. Do a run to have a baseline to compare with in the next experiments.**
 
+![](./assets/img/task4_1_1.png)
 
+**4.2 Set a delay of 250 milliseconds on s1. Relaunch a run with the JMeter script and explain what is happening.**
 
-**4.2 Set a delay of 250 milliseconds on `s1`. Relaunch a run with the JMeter script and explain what is happening.**
+![](./assets/img/task4_2_1.png)
 
+Nous pouvons observer que le rendement de s1 a grandement diminué et est passé à 3.3 requêtes par secondes.
 
+**4.3 Set a delay of 2500 milliseconds on s1. Same than previous step.**
 
-**4.3 Set a delay of 2500 milliseconds on `s1`. Same than previous step.**
+![](./assets/img/task4_3_1.png)
 
-
+Nous observons que s1 ne reçoit plus aucune requête et que toutes les requêtes sont redirigées vers s2. (Explications dans le point suivant)
 
 **4.4 In the two previous steps, are there any errors? Why?**
 
+On ne voit pas d'erreur directement dans JMeter, mais si on regarde dans les outputs de docker-compose on peut voir un message d'erreur nous indiquant qu'il considère s1 comme étant down. Cela s'explique par le fait que la durée de vérification (2001ms) est plus courte que la durée du délai que nous avons configuré. Par ce fait toutes les requêtes sont redirigées sur s2.
+
+Voici l'erreur retournée : `[WARNING] 340/142844 (10) : Server nodes/s1 is DOWN, reason: Layer7 timeout, check duration: 2001ms. 1 active and 0 backup servers left. 1 sessions active, 0 requeued, 0 remaining in queue.`
+
+**4.5 Update the HAProxy configuration to add a weight to your nodes. For that, add weight [1-256] where the value of weight is between the two values (inclusive). Set s1 to 2 and s2 to 1. Redo a run with a 250ms delay.**
+
+```
+backend nodes
+...
+
+server s1 ${WEBAPP_1_IP}:3000 check cookie s1 weight 2
+server s2 ${WEBAPP_2_IP}:3000 check cookie s2 weight 1
+```
 
 
-**4.5 Update the HAProxy configuration to add a weight to your nodes. For that, add `weight [1-256]` where the value of weight is between the two values (inclusive). Set `s1` to 2 and `s2` to 1. Redo a run with a 250ms delay.**
+![](./assets/img/task4_5_1.png)
 
+Comme il n'y a que deux threads et qu'il y a une schedulin policy Round robin, un utilisateur sera envoyé sur chaque serveur et dans ce cas là nous n'observons pas l'impact du poids.
 
+**4.6 Now, what happens when the cookies are cleared between each request and the delay is set to 250ms? We expect just one or two sentence to summarize your observations of the behavior with/without cookies.**
 
-**4.6 Now, what happens when the cookies are cleared between  each request and the delay is set to 250ms? We expect just one or two  sentence to summarize your observations of the behavior with/without  cookies.**
+![](./assets/img/task4_6_1.png)
 
+Comme les cookies sont effacés entre chaque requête, chaque requête est considérée comme venant d'un nouvel utilisateur. Dans ce cas là, nous pouvons observer l'impact du poids des serveurs. Nous observons donc que dans 2/3 des cas les requêtes sont redirigées vers s1 et dans le tier restant vers s2.
 
 
 ## Tâche 5 - Les stratégies de load balancing
