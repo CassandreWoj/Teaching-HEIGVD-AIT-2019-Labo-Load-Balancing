@@ -131,7 +131,16 @@ La webapp reconnait systématiquement le cookie qui est envoyé car c'est elle q
 
 **2.1 There is different way to implement the sticky session. One possibility is to use the SERVERID provided by HAProxy. Another way is  to use the NODESESSID provided by the application. Briefly explain the difference between both approaches (provide a sequence diagram with cookies to show the difference).**
 
-- **Choose one of the both stickiness approach for the next tasks.**
+```sequence
+Browser->HaProxy: GET / \n HOST:192.168.42.42
+HaProxy->S1: GET / \n HOST:192.168.42.11
+S1->HaProxy: {hello:..., sessionViews:1, id: a}
+HaProxy->Browser: {hello,..., sessionViews:1, id: a} \n SERVERID=s1 
+Browser->HaProxy: GET / \n HOST:192.168.42.42 \n SERVERID=s1 NODESESSID=a
+HaProxy->S1: GET / \n HOST:192.168.42.11 \n NODESESSID=a
+S1->HaProxy: {hello:..., sessionViews:2, id:a}
+HaProxy->Browser: {hello:..., sessionViews:2, id:a} \n SERVERID=s1 NODESESSID=a
+```
 
 
 
@@ -141,11 +150,11 @@ Source : https://www.haproxy.com/fr/blog/load-balancing-affinity-persistence-sti
 `
 
     backend nodes
-
+    
     ...
-
+    
     cookie SERVERID insert indirect nocache
-
+    
     # Define the list of nodes to be in the balancing mechanism
     # http://cbonte.github.io/haproxy-dconv/2.2/configuration.html#4-server
     server s1 ${WEBAPP_1_IP}:3000 check cookie s1
