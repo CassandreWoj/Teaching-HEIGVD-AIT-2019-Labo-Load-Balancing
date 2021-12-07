@@ -195,6 +195,17 @@ Nous observons le résultat attendu:
 
 ## Tâche 3 - Le drainage des connexions (drain mode)
 
+**3.1 Open a browser on your machine.**
+
+**3.2 Navigate to http://192.168.42.42. You will reach one of the two nodes. Let's assume it is s1 but in your case, it could be s2 as the balancing strategy is roundrobin.**
+
+**3.3 Refresh the page. You should get the same result except that the sessionViews counter is incremented.**
+
+**3.4 Refresh multiple times the page and verify that you continue to reach the same node and see the sessionViews counter increased.**
+
+**3.5 In a different tab, open HAProxy's statistics report page at http://192.168.42.42:1936 and take a look.**
+
+
 ## Tâche 4 - Le mode dégradé avec Round Robin
 
 ## Tâche 5 - Les stratégies de load balancing
