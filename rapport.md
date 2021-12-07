@@ -257,9 +257,51 @@ Sur la capture d'écran ci-dessus, nous voyons la fenêtre de gauche connectée 
 
 **3.5 Clear the cookies on the new browser and repeat these two steps multiple times. What is happening? Are you reaching the node in DRAIN mode?**
 
+Non, nous n'atteignons jamais la node `s2` qui est la node en mode `DRAIN` malgré avoir rafraichit la page et supprimé les cookies plusieurs fois. Nous restons sur la node `s1`. C'est exactement ce qui est supposé se passer, car c'est le rôle du mode `DRAIN` de ne pas accepter de nouvelles connexions mais de garder actives celles qui sont déjà établies. 
+
 **3.6 Reset the node in READY mode. Repeat the three previous steps and explain what is happening. Provide a screenshot of HAProxy's stats page.**
 
+Nous avons entré la commande suivante afin de remettre la node `s2` en état `READY`: 
+
+```bash
+> set server nodes/s2 state ready
+```
+
+Nous rafraichissons la page de statistiques de HAProxy pour que la modification soit prise en compte et nous obtenons la capture d'écran suivante :
+
+![](assets/img/task3_6-reset-ready-mode.png)
+
+Nous constatons que l'état a bien été modifié car la colonne `STATUS` indique de nouveau un état `UP`. En rafraichissant la page de navigateur déjà connectée sur la node `s2`, nous voyons qu'elle reste sur la même node : 
+
+![](assets/img/task3_6-refresh_connected.png)
+
+En ouvrant une nouvelle fenêtre de navigation, nous allons sur l'adresse `http://192.168.42.42/` et nous constatons que nous nous retrouvons sur la node `s2` mais que le compteur est de nouveau à 1. Nous en déduisons donc qu'une nouvelle session a été ouverte pour ce nouveau navigateur : 
+
+![](assets/img/task3_6-new_nav.png)
+
+Le fonctionnement normal est donc retrouvé, il est de nouveau possible de se connecter sur la node `s2` avec une nouvelle session. 
+
 **3.7 Finally, set the node in MAINT mode. Redo the three same steps and explain what is happening. Provide a screenshot of HAProxy's stats page.**
+
+Nous modifions le mode avec la commande : 
+
+```bash
+> set server nodes/s2 state maint
+```
+
+La page de statistiques de HAProxy a maintenant un affichage différent : 
+
+![](assets/img/task3_7-maint-stat.png)
+
+Nous constatons que la couleur de la ligne de la node `s2` a changé, et la colonne `STATUS` indique que cette node est en mode `MAINT`.
+
+Lorsque nous rafraichissons la page déjà connectée sur la node `s2`, nous atteignons la node `s1` avec un compteur avec une valeur de 1, donc une nouvelle session : 
+
+![](assets/img/task3_7-refresh_connected_page.png)
+
+Puis, nous ouvrons une nouvelle page et nous atteignons également la node `s1`, car la node `s2` est en état de maintenance (`MAINT`) et elle n'accepte plus aucune connexion (celles déjà établies sont arrêtées) :
+
+![](assets/img/taksk3_7-new_nav.png)
 
 
 ## Tâche 4 - Le mode dégradé avec Round Robin
