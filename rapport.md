@@ -377,48 +377,16 @@ Comme les cookies sont effacés entre chaque requête, chaque requête est consi
 **5.1 Briefly explain the strategies you have chosen and why you have chosen them.**
 
 ```
-  first       The first server with available connection slots receives the
-              connection. The servers are chosen from the lowest numeric
-              identifier to the highest (see server parameter "id"), which
-              defaults to the server's position in the farm. Once a server
-              reaches its maxconn value, the next server is used. It does
-              not make sense to use this algorithm without setting maxconn.
-              The purpose of this algorithm is to always use the smallest
-              number of servers so that extra servers can be powered off
-              during non-intensive hours. This algorithm ignores the server
-              weight, and brings more benefit to long session such as RDP
-              or IMAP than HTTP, though it can be useful there too. In
-              order to use this algorithm efficiently, it is recommended
-              that a cloud controller regularly checks server usage to turn
-              them off when unused, and regularly checks backend queue to
-              turn new servers on when the queue inflates. Alternatively,
-              using "http-check send-state" may inform servers on the load.
+  leastconn   The server with the lowest number of connections receives the
+              connection. Round-robin is performed within groups of servers
+              of the same load to ensure that all servers will be used. This
+              algorithm is dynamic, which means that server weights may be
+              adjusted on the fly for slow starts for instance.
               
-  random
-  random(<draws>)
-              A random number will be used as the key for the consistent
+  random      A random number will be used as the key for the consistent
               hashing function. This means that the servers' weights are
               respected, dynamic weight changes immediately take effect, as
-              well as new server additions. Random load balancing can be
-              useful with large farms or when servers are frequently added
-              or removed as it may avoid the hammering effect that could
-              result from roundrobin or leastconn in this situation. The
-              hash-balance-factor directive can be used to further improve
-              fairness of the load balancing, especially in situations
-              where servers show highly variable response times. When an
-              argument <draws> is present, it must be an integer value one
-              or greater, indicating the number of draws before selecting
-              the least loaded of these servers. It was indeed demonstrated
-              that picking the least loaded of two servers is enough to
-              significantly improve the fairness of the algorithm, by
-              always avoiding to pick the most loaded server within a farm
-              and getting rid of any bias that could be induced by the
-              unfair distribution of the consistent list. Higher values N
-              will take away N-1 of the highest loaded servers at the
-              expense of performance. With very high values, the algorithm
-              will converge towards the leastconn's result but much slower.
-              The default value is 2, which generally shows very good
-              distribution and performance. This algorithm is also known as
+              well as new server additions. This algorithm is also known as
               the Power of Two Random Choices and is described here :
               http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
 ```
@@ -484,10 +452,16 @@ Nous avons fait plusieurs essais avec JMeter pour tester si les nodes sont réel
 
 **5.3 Compare the two strategies and conclude which is the best for this lab (not necessary the best at all).**
 
-// TODO
-
-
+Le scheduling leastconn est plus adapté à des situations ou la durée de la session est longue (LDAP, SQL, TSE,...) mais moins à des cas comme http.
+Random quand à lui est plus adapté dans les cas ou le  nombre de serveurs est grand et dans un cas ou des serveurs sont fréquement ajoutés ou retirés.
+Dans notre cas leastconn serait plus adapté, il pourrait permettre de répartir la charge sur les serveurs plus uniformément dans le cas ou certaines requêtes arrivent avec du délai.
 
 ## Conclusion 
 
-// ce que ce labo vous a apporté, ce que vous en retenez
+Nous avons appris comment configurer un load-balancer et comment celui-ci réagit à différentes situations (un serveur est down, certaines requêtes arrivent avec du délai, ...).
+
+Nous avons aussi appris à utiliser le load-balancer avec différentes scheduling policy.
+
+Ce fut long mais ce fut fun. 
+
+Bonnes fêtes de fin d'année
