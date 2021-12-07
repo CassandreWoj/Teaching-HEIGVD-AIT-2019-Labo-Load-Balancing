@@ -186,10 +186,32 @@ L'utilisateur est toujours redirigé vers la même webapp, une même session est
 
 On peut voir ci-dessus que la session est bien identique pour les différentes requêtes d'un utilisateur. On voit aussi que le cookie SERVERID est bien présent afin d'indiquer au load balancer ou rediriger la requête (dans ce cas sur la webapp1).
 
-
 **2.4 Provide a sequence diagram to explain what is happening when one requests the URL for the first time and then refreshes the page. We want to see what is happening with the cookie. We want to see the sequence of messages exchanged (1) between the browser and HAProxy and (2) between HAProxy and the nodes S1 and S2. We also want to see what is happening when a second browser is used.**
 
+```sequence
+participant Browser1
+participant Browser2
+participant HaProxy
+participant S1
+participant S2
+Browser1->HaProxy: GET / \n HOST:192.168.42.42
+HaProxy->S1: GET / \n HOST:192.168.42.11
+S1->HaProxy: {hello:..., sessionViews:1, id: a}
+HaProxy->Browser1: {hello,..., sessionViews:1, id: a} \n SERVERID=s1 
+Browser1->HaProxy: GET / \n HOST:192.168.42.42 \n SERVERID=s1 NODESESSID=a
+HaProxy->S1: GET / \n HOST:192.168.42.11 \n NODESESSID=a
+S1->HaProxy: {hello:..., sessionViews:2, id:a}
+HaProxy->Browser1: {hello:..., sessionViews:2, id:a} \n SERVERID=s1 NODESESSID=a
 
+Browser2->HaProxy: GET / \n HOST:192.168.42.42
+HaProxy->S2: GET / \n HOST:192.168.42.12
+S2->HaProxy: {hello:..., sessionViews:1, id: b}
+HaProxy->Browser2: {hello,..., sessionViews:1, id: b} \n SERVERID=s2 
+Browser2->HaProxy: GET / \n HOST:192.168.42.42 \n SERVERID=s2 NODESESSID=b
+HaProxy->S2: GET / \n HOST:192.168.42.22 \n NODESESSID=b
+S2->HaProxy: {hello:..., sessionViews:2, id:b}
+HaProxy->Browser2: {hello:..., sessionViews:2, id:b} \n SERVERID=s2 NODESESSID=b
+```
 
 **2.5 Provide a screenshot of JMeter's summary report. Is there a difference with this run and the run of Task 1?**
 
