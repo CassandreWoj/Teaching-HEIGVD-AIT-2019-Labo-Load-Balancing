@@ -327,61 +327,147 @@ Puis, nous ouvrons une nouvelle page et nous atteignons également la node `s1`,
 
 ## Tâche 4 - Le mode dégradé avec Round Robin
 
-**4.1 Make sure a delay of 0 milliseconds is set on s1. Do a run to have a baseline to compare with in the next experiments.**
+**4.1 Make sure a delay of 0 milliseconds is set on `s1`. Do a run to have a baseline to compare with in the next experiments.**
 
-![](./assets/img/task4_1_1.png)
 
-**4.2 Set a delay of 250 milliseconds on s1. Relaunch a run with the JMeter script and explain what is happening.**
 
-![](./assets/img/task4_2_1.png)
+**4.2 Set a delay of 250 milliseconds on `s1`. Relaunch a run with the JMeter script and explain what is happening.**
 
-Nous pouvons observer que le rendement de s1 a grandement diminué et est passé à 3.3 requêtes par secondes.
 
-**4.3 Set a delay of 2500 milliseconds on s1. Same than previous step.**
 
-![](./assets/img/task4_3_1.png)
+**4.3 Set a delay of 2500 milliseconds on `s1`. Same than previous step.**
 
-Nous observons que s1 ne reçoit plus aucune requête et que toutes les requêtes sont redirigées vers s2. (Explications dans le point suivant)
+
 
 **4.4 In the two previous steps, are there any errors? Why?**
 
-On ne voit pas d'erreur directement dans JMeter, mais si on regarde dans les outputs de docker-compose on peut voir un message d'erreur nous indiquant qu'il considère s1 comme étant down. Cela s'explique par le fait que la durée de vérification (2001ms) est plus courte que la durée du délai que nous avons configuré. Par ce fait toutes les requêtes sont redirigées sur s2.
-
-Voici l'erreur retournée : `[WARNING] 340/142844 (10) : Server nodes/s1 is DOWN, reason: Layer7 timeout, check duration: 2001ms. 1 active and 0 backup servers left. 1 sessions active, 0 requeued, 0 remaining in queue.`
-
-**4.5 Update the HAProxy configuration to add a weight to your nodes. For that, add weight [1-256] where the value of weight is between the two values (inclusive). Set s1 to 2 and s2 to 1. Redo a run with a 250ms delay.**
-
-```
-backend nodes
-...
-
-server s1 ${WEBAPP_1_IP}:3000 check cookie s1 weight 2
-server s2 ${WEBAPP_2_IP}:3000 check cookie s2 weight 1
-```
 
 
-![](./assets/img/task4_5_1.png)
+**4.5 Update the HAProxy configuration to add a weight to your nodes. For that, add `weight [1-256]` where the value of weight is between the two values (inclusive). Set `s1` to 2 and `s2` to 1. Redo a run with a 250ms delay.**
 
-Comme il n'y a que deux threads et qu'il y a une schedulin policy Round robin, un utilisateur sera envoyé sur chaque serveur et dans ce cas là nous n'observons pas l'impact du poids.
 
-**4.6 Now, what happens when the cookies are cleared between each request and the delay is set to 250ms? We expect just one or two sentence to summarize your observations of the behavior with/without cookies.**
 
-![](./assets/img/task4_6_1.png)
+**4.6 Now, what happens when the cookies are cleared between  each request and the delay is set to 250ms? We expect just one or two  sentence to summarize your observations of the behavior with/without  cookies.**
 
-Comme les cookies sont effacés entre chaque requête, chaque requête est considérée comme venant d'un nouvel utilisateur. Dans ce cas là, nous pouvons observer l'impact du poids des serveurs. Nous observons donc que dans 2/3 des cas les requêtes sont redirigées vers s1 et dans le tier restant vers s2.
 
 
 ## Tâche 5 - Les stratégies de load balancing
 
+> Source utilisée : http://cbonte.github.io/haproxy-dconv/2.2/configuration.html
+>
+> La documentation fournie dans la donnée était dépréciée, d'où notre choix d'utiliser une autre source.
+
 **5.1 Briefly explain the strategies you have chosen and why you have chosen them.**
 
+```
+  first       The first server with available connection slots receives the
+              connection. The servers are chosen from the lowest numeric
+              identifier to the highest (see server parameter "id"), which
+              defaults to the server's position in the farm. Once a server
+              reaches its maxconn value, the next server is used. It does
+              not make sense to use this algorithm without setting maxconn.
+              The purpose of this algorithm is to always use the smallest
+              number of servers so that extra servers can be powered off
+              during non-intensive hours. This algorithm ignores the server
+              weight, and brings more benefit to long session such as RDP
+              or IMAP than HTTP, though it can be useful there too. In
+              order to use this algorithm efficiently, it is recommended
+              that a cloud controller regularly checks server usage to turn
+              them off when unused, and regularly checks backend queue to
+              turn new servers on when the queue inflates. Alternatively,
+              using "http-check send-state" may inform servers on the load.
+              
+  random
+  random(<draws>)
+              A random number will be used as the key for the consistent
+              hashing function. This means that the servers' weights are
+              respected, dynamic weight changes immediately take effect, as
+              well as new server additions. Random load balancing can be
+              useful with large farms or when servers are frequently added
+              or removed as it may avoid the hammering effect that could
+              result from roundrobin or leastconn in this situation. The
+              hash-balance-factor directive can be used to further improve
+              fairness of the load balancing, especially in situations
+              where servers show highly variable response times. When an
+              argument <draws> is present, it must be an integer value one
+              or greater, indicating the number of draws before selecting
+              the least loaded of these servers. It was indeed demonstrated
+              that picking the least loaded of two servers is enough to
+              significantly improve the fairness of the algorithm, by
+              always avoiding to pick the most loaded server within a farm
+              and getting rid of any bias that could be induced by the
+              unfair distribution of the consistent list. Higher values N
+              will take away N-1 of the highest loaded servers at the
+              expense of performance. With very high values, the algorithm
+              will converge towards the leastconn's result but much slower.
+              The default value is 2, which generally shows very good
+              distribution and performance. This algorithm is also known as
+              the Power of Two Random Choices and is described here :
+              http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
+```
 
+**5.2 Provide evidence that you have played with the two strategies (configuration done, screenshots)**
 
-**5.2 Provide evidence that you have played with the two strategies (configuration done, screenshots, ...)**
+**5.2.1 `leastconn`**
 
+Nous avons modifié la configuration comme suit : 
 
+```
+backend nodes
+[...]
+    balance leastconn
+[...]
+	server s1 ${WEBAPP_1_IP}:3000 cookie S1 check
+    server s2 ${WEBAPP_2_IP}:3000 cookie S2 check
+```
+
+Nous avons essayé en ajoutant un delay de 250 ms sur la node `s1` grâce à la commande : 
+
+```bash
+$ curl -H "Content-Type: application/json" -X POST -d '{"delay": 250}' http://192.168.42.11:3000/delay
+```
+
+Nous avons lancé le script `tester.jmx` sur JMeter avec deux threads et 500 requêtes par thread, pour obtenir le résultat suivant : 
+
+![](assets/img/task5_2_leastconn250.png)
+
+Nous constatons que la node `s1` a reçu moins de requêtes (172), car elle mettait plus de temps à répondre. Le load balancer répartit alors les requêtes sur la node `s2` qui est disponible. 
+
+Avec un delay de 500 ms, nous avons obtenu le résultat suivant : 
+
+<img src="assets/img/task5_2_delay500.png" style="zoom:35%;" />
+
+Seules 64 requêtes ont été dirigées vers la node `s1`. 
+
+Nous avons ensuite essayé d'ajouter un delay plus grand, c'est-à-dire 1000 ms : 
+
+![](assets/img/task5_2-leastconn.png)
+
+Lorsque nous augmentons le delay en le doublant, nous constatons que la node `s1` reçoit quasiment deux fois moins de requêtes, car elle est deux fois plus lente à répondre. Avec un delay de 1000 ms, elle reçoit 36 requêtes, soit deux fois moins qu'avec un delay de 500 ms (64 reçues). 
+
+**5.2.2 `random`**
+
+Nous avons modifié la configuration comme suit : 
+
+```
+backend nodes
+[...]
+	balance random
+[...]
+    server s1 ${WEBAPP_1_IP}:3000 check
+    server s2 ${WEBAPP_2_IP}:3000 check
+```
+
+Nous avons fait plusieurs essais avec JMeter pour tester si les nodes sont réellement atteintes de manière aléatoire, et nous concluons que c'est le cas, car chacun de nos essais donne un résultat différent : 
+
+| ![](assets/img/task5_2-try2.png)  |
+| --------------------------------- |
+| ![](assets/img/task5_2_try3.png)  |
+| ![](assets/img/task_5-2_try1.png) |
 
 **5.3 Compare the two strategies and conclude which is the best for this lab (not necessary the best at all).**
+
+// TODO
 
 
 
