@@ -131,6 +131,8 @@ La webapp reconnait systématiquement le cookie qui est envoyé car c'est elle q
 
 **2.1 There is different way to implement the sticky session. One possibility is to use the SERVERID provided by HAProxy. Another way is  to use the NODESESSID provided by the application. Briefly explain the difference between both approaches (provide a sequence diagram with cookies to show the difference).**
 
+Avec la methode SERVERID, le load balancer va séparer le cookie avec une partie SERVERID qui est collée au serveur correspondant. On peut ensuite récupérer le bon cookie pour récupérer la bonne session :
+
 ```sequence
 Browser->HaProxy: GET / \n HOST:192.168.42.42
 HaProxy->S1: GET / \n HOST:192.168.42.11
@@ -142,7 +144,18 @@ S1->HaProxy: {hello:..., sessionViews:2, id:a}
 HaProxy->Browser: {hello:..., sessionViews:2, id:a} \n SERVERID=s1 NODESESSID=a
 ```
 
+Dans la deuxième methode, on va insérer le SERVERID directement dans le cookie NODESESSID. Il est séparer par un ~. Comme pour la methode précédente, pour le serveur il n'y a auune différence. C'est uniquement le load balancer qui gère de mettre le SERVERID dans le NODESESSID. 
 
+```sequence
+Browser->HaProxy: GET / \n HOST:192.168.42.42
+HaProxy->S1: GET / \n HOST:192.168.42.11
+S1->HaProxy: {hello:..., sessionViews:1, id: a}
+HaProxy->Browser: {hello,..., sessionViews:1, id: a} \n NODESESSID=s1~a
+Browser->HaProxy: GET / \n HOST:192.168.42.42 \n NODESESSID=s1~a
+HaProxy->S1: GET / \n HOST:192.168.42.11 \n NODESESSID=a
+S1->HaProxy: {hello:..., sessionViews:2, id:a} \n NODESESSID=a
+HaProxy->Browser: {hello:..., sessionViews:2, id:a} \n NODESESSID=s1~a
+```
 
 **2.2 Provide the modified `haproxy.cfg` file with a short explanation of the modifications you did to enable sticky session management.**
 
