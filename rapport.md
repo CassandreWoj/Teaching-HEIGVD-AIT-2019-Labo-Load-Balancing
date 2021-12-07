@@ -137,19 +137,18 @@ La webapp reconnait systématiquement le cookie qui est envoyé car c'est elle q
 
 **2.2 Provide the modified `haproxy.cfg` file with a short explanation of the modifications you did to enable sticky session management.**
 
-Source : https://www.haproxy.com/fr/blog/load-balancing-affinity-persistence-sticky-sessions-what-you-need-to-know/
-`
+> Source : https://www.haproxy.com/fr/blog/load-balancing-affinity-persistence-sticky-sessions-what-you-need-to-know/
 
     backend nodes
-
+    
     ...
-
+    
     cookie SERVERID insert indirect nocache
-
+    
     # Define the list of nodes to be in the balancing mechanism
     # http://cbonte.github.io/haproxy-dconv/2.2/configuration.html#4-server
     server s1 ${WEBAPP_1_IP}:3000 check cookie s1
-    server s2 ${WEBAPP_2_IP}:3000 check cookie s2`
+    server s2 ${WEBAPP_2_IP}:3000 check cookie s2
 
 * `cookie SERVERID insert indirect nocache`
   * Indique à HAProxy qu'il faut configurer un cookie SERVERID uniquement si l'utilisateur n'en a pas fourni un avec sa requête.
@@ -195,15 +194,50 @@ Nous observons le résultat attendu:
 
 ## Tâche 3 - Le drainage des connexions (drain mode)
 
-**3.1 Open a browser on your machine.**
+**3.1 Take a screenshot of the Step 5 and tell us which node is answering.**
 
-**3.2 Navigate to http://192.168.42.42. You will reach one of the two nodes. Let's assume it is s1 but in your case, it could be s2 as the balancing strategy is roundrobin.**
+![](assets/img/task3_haproxy_stat.png)
 
-**3.3 Refresh the page. You should get the same result except that the sessionViews counter is incremented.**
+Sur la capture ci-dessus, nous constatons que la node qui a été atteinte est la node `s2`. 
 
-**3.4 Refresh multiple times the page and verify that you continue to reach the same node and see the sessionViews counter increased.**
+**3.2 Based on your previous answer, set the node in DRAIN mode. Take a screenshot of the HAProxy state page.**
 
-**3.5 In a different tab, open HAProxy's statistics report page at http://192.168.42.42:1936 and take a look.**
+Après avoir entré les commandes suivantes, nous avons repris une capture d'écran de la page de statistiques HAProxy : 
+
+```bash
+$ socat - tcp:192.168.42.42:9999
+prompt
+> set timeout cli 1d
+> set server nodes/s2 state drain
+```
+
+Nous obtenons une page de statistiques actualisée : 
+
+![](assets/img/task3_2_drain-mode.png)
+
+Nous constatons que la couleur de la ligne concernant la node `s2` a changé. La colonne `STATUS` indique également que le mode `DRAIN` est activé depuis 30 secondes. 
+
+**3.3 Refresh your browser and explain what is happening. Tell us if you stay on the same node or not. If yes, why? If no, why?**
+
+En rafraichissant la fenêtre du navigateur ouverte et connectée sur la node `s2`, nous constatons que le compteur continue d'être incrémenté : 
+
+<img src="assets/img/task3_3-refresh-same-node.png" style="zoom:67%;" />
+
+Le mode `DRAIN` permet de retirer le serveur du load balancing, mais les connexions qui sont déjà établies restent en place. 
+
+**3.4 Open another browser and open `http://192.168.42.42`. What is happening?**
+
+Lorsque nous ouvrons un nouveau navigateur pour nous rendre sur l'adresse mentionnée, nous tombons sur la node `s1`: 
+
+![](assets/img/task3_3_other-browser-drain-mode.png)
+
+Sur la capture d'écran ci-dessus, nous voyons la fenêtre de gauche connectée sur la node `s2` (la première fenêtre qui a été ouverte avant le mode `DRAIN`) et la fenêtre de droite qui est le nouveau navigateur connecté sur la node `s1`. Lorsque nous rafraichissons cette fenêtre, nous restons toujours sur la même node.  
+
+**3.5 Clear the cookies on the new browser and repeat these two steps multiple times. What is happening? Are you reaching the node in DRAIN mode?**
+
+**3.6 Reset the node in READY mode. Repeat the three previous steps and explain what is happening. Provide a screenshot of HAProxy's stats page.**
+
+**3.7 Finally, set the node in MAINT mode. Redo the three same steps and explain what is happening. Provide a screenshot of HAProxy's stats page.**
 
 
 ## Tâche 4 - Le mode dégradé avec Round Robin
