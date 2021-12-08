@@ -4,11 +4,15 @@
 >
 > Cours : AIT
 >
-> Date : 18.11.2021
+> Date : 08.12.2021
 
 ## Introduction
 
-// description globale du labo
+L'objectif de ce troisième laboratoire d'Administration IT est de déployer une application web avec une architecture 2-tier pour améliorer l'évolutivité de l'application. Nous allons configurer un load balancer de différentes manières, analyser ces différentes stratégies, les expliquer et les comparer. 
+
+Pour ce faire, nous allons utiliser les outils Docker, Docker Compose et JMeter: nous avons trois conteneurs Docker dont le premier contient le load balancer HAProxy et les deux autres contiennent une application web identique. JMeter va nous permettre de faire des requêtes et d'observer sur quelle application elles seront dirigées. 
+
+
 
 ## Tâche 1 - Installation des outils
 
@@ -75,7 +79,7 @@ La seconde fait apparaître le tag `s2` et un id commençant `3Tsi`.
 
 Une requête sur deux aura le tag `s1` et l'autre aura donc le tag `s2`, nous pouvons donc déduire le load balancer alterne les redirections sur les deux web app. 
 
-Par contre, les identifiants changent à chaque rafraichissement de page, donc nous changeons de session à chaque fois. Cela explique que le champ `sessionViews` reste toujours à 1. 
+Par contre, les identifiants changent à chaque rafraichissement de page, donc nous changeons de session à chaque fois. Cela explique que le champ `sessionViews` reste toujours à 1, sa valeur ne peut pas être incrémentée car elle n'est pas gardée à chaque changement de session. 
 
 
 
@@ -89,8 +93,6 @@ Par contre, il faut noter que l'utilisateur d'une session doit toujours être re
 
 **1.3 Provide a sequence diagram to explain what is happening when one requests the URL for the first time and then refreshes the page. We want to see what is happening with the cookie. We want to see the sequence of messages exchanged (1) between the browser and HAProxy and (2) between HAProxy and the nodes S1 and S2.**
 
-![](assets/img/task1_1.3.png)
-
 Lors de la première requête, la webapp 1 attribue un cookie à l'utilisateur. Lors de la seconde requête, ce premier cookie est envoyé à la webapp 2. Celle-ci ne le reconnait pas et en attribue donc un nouveau à l'utilisateur. 
 
 Le cookie est donc changé à chaque fois, car les webapps ne reconnaissent pas les cookies attribués par l'autre. 
@@ -101,7 +103,9 @@ Le cookie est donc changé à chaque fois, car les webapps ne reconnaissent pas 
 
 **1.4 Provide a screenshot of the summary report from JMeter**
 
- ![](assets/img/task1_jmeter.png)
+![](assets/img/task1_jmeter.png)
+
+Nous constatons donc que les requêtes sont réparties équitablement entre les deux nodes `s1` et `s2`. 
 
 
 
@@ -131,7 +135,10 @@ La webapp reconnait systématiquement le cookie qui est envoyé car c'est elle q
 
 **2.1 There is different way to implement the sticky session. One possibility is to use the SERVERID provided by HAProxy. Another way is  to use the NODESESSID provided by the application. Briefly explain the difference between both approaches (provide a sequence diagram with cookies to show the difference).**
 
-Avec la methode SERVERID, le load balancer va séparer le cookie avec une partie SERVERID qui est collée au serveur correspondant. On peut ensuite récupérer le bon cookie pour récupérer la bonne session :
+Avec la méthode SERVERID, nous aurons deux cookies séparés : 
+
+- un cookie SERVERID lié au serveur correspondant (soit `s1`, soit `s2`) qui est utilisé par le load balancer pour diriger la requête sur la bonne node (le load balancer va transmettre la requête à l'application web sans le cookie SERVERID),
+- un cookie NODESESSID, qui est le cookie de l'application web et qui est retransmis à la node pour garder la session.
 
 ```sequence
 Browser->HaProxy: GET / \n HOST:192.168.42.42
@@ -144,7 +151,9 @@ S1->HaProxy: {hello:..., sessionViews:2, id:a}
 HaProxy->Browser: {hello:..., sessionViews:2, id:a} \n SERVERID=s1 NODESESSID=a
 ```
 
-Dans la deuxième methode, on va insérer le SERVERID directement dans le cookie NODESESSID. Il est séparer par un ~. Comme pour la methode précédente, pour le serveur il n'y a auune différence. C'est uniquement le load balancer qui gère de mettre le SERVERID dans le NODESESSID. 
+
+
+Dans la méthode NODESESSID, on va insérer le cookie SERVERID directement dans le cookie NODESESSID. Il est séparé par le caractère `~`. Comme pour la méthode précédente, pour le serveur il n'y a aucune différence. C'est uniquement le load balancer qui gère de mettre le cookie SERVERID dans le cookie NODESESSID. 
 
 ```sequence
 Browser->HaProxy: GET / \n HOST:192.168.42.42
@@ -157,25 +166,23 @@ S1->HaProxy: {hello:..., sessionViews:2, id:a} \n NODESESSID=a
 HaProxy->Browser: {hello:..., sessionViews:2, id:a} \n NODESESSID=s1~a
 ```
 
+
+
 **2.2 Provide the modified `haproxy.cfg` file with a short explanation of the modifications you did to enable sticky session management.**
 
 > Source : https://www.haproxy.com/fr/blog/load-balancing-affinity-persistence-sticky-sessions-what-you-need-to-know/
 
     backend nodes
-    
-    ...
-    
+    [...]
     cookie SERVERID insert indirect nocache
-    
-    # Define the list of nodes to be in the balancing mechanism
-    # http://cbonte.github.io/haproxy-dconv/2.2/configuration.html#4-server
+    [...]
     server s1 ${WEBAPP_1_IP}:3000 check cookie s1
     server s2 ${WEBAPP_2_IP}:3000 check cookie s2
 
-* `cookie SERVERID insert indirect nocache`
-  * Indique à HAProxy qu'il faut configurer un cookie SERVERID uniquement si l'utilisateur n'en a pas fourni un avec sa requête.
-* `check cookie s1` et `check cookie s2`
-  * Indique à HAProxy sur quel serveur rediriger l'utilisateur en fonction de son cookie.
+* `cookie SERVERID insert indirect nocache` : indique à HAProxy qu'il faut configurer un cookie SERVERID uniquement si l'utilisateur n'en a pas fourni un avec sa requête.
+* `check cookie s1` et `check cookie s2` : indiquent à HAProxy sur quel serveur rediriger l'utilisateur en fonction de son cookie.
+
+
 
 **2.3 Explain what is the behavior when you open and refresh the URL http://192.168.42.42 in your browser. Add screenshots to complement your explanations. We expect that you take a deeper a look at session management.**
 
@@ -184,7 +191,9 @@ L'utilisateur est toujours redirigé vers la même webapp, une même session est
 ![](./assets/img/task2_3_1.png)
 ![](./assets/img/task2_3_2.png)
 
-On peut voir ci-dessus que la session est bien identique pour les différentes requêtes d'un utilisateur. On voit aussi que le cookie SERVERID est bien présent afin d'indiquer au load balancer ou rediriger la requête (dans ce cas sur la webapp1).
+On peut voir ci-dessus que la session est bien identique pour les différentes requêtes d'un utilisateur. On voit aussi que le cookie SERVERID est bien présent afin d'indiquer au load balancer où rediriger la requête (dans ce cas sur la webapp1).
+
+
 
 **2.4 Provide a sequence diagram to explain what is happening when one requests the URL for the first time and then refreshes the page. We want to see what is happening with the cookie. We want to see the sequence of messages exchanged (1) between the browser and HAProxy and (2) between HAProxy and the nodes S1 and S2. We also want to see what is happening when a second browser is used.**
 
@@ -213,27 +222,33 @@ S2->HaProxy: {hello:..., sessionViews:2, id:b}
 HaProxy->Browser2: {hello:..., sessionViews:2, id:b} \n SERVERID=s2 NODESESSID=b
 ```
 
+
+
 **2.5 Provide a screenshot of JMeter's summary report. Is there a difference with this run and the run of Task 1?**
 
 ![](./assets/img/task2_5_1.png)
 
-Nous observons que toutes les requêtes ont été redirigées vers la même webapp et donc que le sticky session est implémenté correctement. C'est différement du cas de la task1 ou l'on était redirigé de manière uniforme sur les deux webapps.
+Nous observons que toutes les requêtes ont été redirigées vers la même webapp et donc que la sticky session est implémentée correctement. C'est différement du cas de la tâche 1 où on était redirigé de manière uniforme sur les deux webapps.
 
-- **Clear the results in JMeter.**
-- **Now, update the JMeter script. Go in the HTTP Cookie Manager and ~~uncheck~~verify that the box `Clear cookies each iteration?` is unchecked.**
-- **Go in `Thread Group` and update the `Number of threads`. Set the value to 2.**
 
-  
 
 **2.6 Provide a screenshot of JMeter's summary report. Give a short explanation of what the load balancer is doing.**
 
+> Clear the results in JMeter.
+>
+> Now, update the JMeter script. Go in the HTTP Cookie Manager and ~~uncheck~~verify that the box `Clear cookies each iteration?` is unchecked.
+>
+> Go in `Thread Group` and update the `Number of threads`. Set the value to 2.
+
 ![](./assets/img/task2_6_1.png)
 
-Nous avons configuré JMeter pour simuler l'envoi par deux utilisateurs de 1000 requêtes chacun. De plus les cookies ne sont pas reset à chaque nouvelle requête.
+Nous avons configuré JMeter pour simuler l'envoi par deux utilisateurs de 1000 requêtes chacun. De plus les cookies ne sont pas réinitialisés à chaque nouvelle requête.
 
 Nous observons le résultat attendu:
 * Lors de sa première requête un des deux utililisateurs a été redirigé vers la webapp1. Lors des 999 requêtes suivantes il a été redirigé vers la même webapp.
 * Pour l'autre utilisateur, le scénario est identique mais avec la webapp2.
+
+
 
 
 ## Tâche 3 - Le drainage des connexions (drain mode)
@@ -243,6 +258,8 @@ Nous observons le résultat attendu:
 ![](assets/img/task3_haproxy_stat.png)
 
 Sur la capture ci-dessus, nous constatons que la node qui a été atteinte est la node `s2`. 
+
+
 
 **3.2 Based on your previous answer, set the node in DRAIN mode. Take a screenshot of the HAProxy state page.**
 
@@ -261,6 +278,8 @@ Nous obtenons une page de statistiques actualisée :
 
 Nous constatons que la couleur de la ligne concernant la node `s2` a changé. La colonne `STATUS` indique également que le mode `DRAIN` est activé depuis 30 secondes. 
 
+
+
 **3.3 Refresh your browser and explain what is happening. Tell us if you stay on the same node or not. If yes, why? If no, why?**
 
 En rafraichissant la fenêtre du navigateur ouverte et connectée sur la node `s2`, nous constatons que le compteur continue d'être incrémenté : 
@@ -268,6 +287,8 @@ En rafraichissant la fenêtre du navigateur ouverte et connectée sur la node `s
 <img src="assets/img/task3_3-refresh-same-node.png" style="zoom:67%;" />
 
 Le mode `DRAIN` permet de retirer le serveur du load balancing, mais les connexions qui sont déjà établies restent en place. 
+
+
 
 **3.4 Open another browser and open `http://192.168.42.42`. What is happening?**
 
@@ -277,9 +298,13 @@ Lorsque nous ouvrons un nouveau navigateur pour nous rendre sur l'adresse mentio
 
 Sur la capture d'écran ci-dessus, nous voyons la fenêtre de gauche connectée sur la node `s2` (la première fenêtre qui a été ouverte avant le mode `DRAIN`) et la fenêtre de droite qui est le nouveau navigateur connecté sur la node `s1`. Lorsque nous rafraichissons cette fenêtre, nous restons toujours sur la même node.  
 
+
+
 **3.5 Clear the cookies on the new browser and repeat these two steps multiple times. What is happening? Are you reaching the node in DRAIN mode?**
 
-Non, nous n'atteignons jamais la node `s2` qui est la node en mode `DRAIN` malgré avoir rafraichit la page et supprimé les cookies plusieurs fois. Nous restons sur la node `s1`. C'est exactement ce qui est supposé se passer, car c'est le rôle du mode `DRAIN` de ne pas accepter de nouvelles connexions mais de garder actives celles qui sont déjà établies. 
+Non, nous n'atteignons jamais la node `s2` qui est la node en mode `DRAIN`, malgré avoir rafraichit la page et supprimé les cookies plusieurs fois. Nous restons sur la node `s1`. C'est exactement ce qui est supposé se passer, car c'est le rôle du mode `DRAIN` de ne pas accepter de nouvelles connexions mais de garder actives celles qui sont déjà établies. 
+
+
 
 **3.6 Reset the node in READY mode. Repeat the three previous steps and explain what is happening. Provide a screenshot of HAProxy's stats page.**
 
@@ -303,6 +328,8 @@ En ouvrant une nouvelle fenêtre de navigation, nous allons sur l'adresse `http:
 
 Le fonctionnement normal est donc retrouvé, il est de nouveau possible de se connecter sur la node `s2` avec une nouvelle session. 
 
+
+
 **3.7 Finally, set the node in MAINT mode. Redo the three same steps and explain what is happening. Provide a screenshot of HAProxy's stats page.**
 
 Nous modifions le mode avec la commande : 
@@ -325,29 +352,43 @@ Puis, nous ouvrons une nouvelle page et nous atteignons également la node `s1`,
 
 ![](assets/img/taksk3_7-new_nav.png)
 
+
+
 ## Tâche 4 - Le mode dégradé avec Round Robin
 
 **4.1 Make sure a delay of 0 milliseconds is set on `s1`. Do a run to have a baseline to compare with in the next experiments.**
 
 ![](./assets/img/task4_1_1.png)
 
+
+
 **4.2 Set a delay of 250 milliseconds on `s1`. Relaunch a run with the JMeter script and explain what is happening.**
 
 ![](./assets/img/task4_2_1.png)
 
-Nous pouvons observer que le rendement de s1 a grandement diminué et est passé à 3.3 requêtes par secondes.
+Nous pouvons observer que le rendement de `s1` a grandement diminué et est passé à 3.3 requêtes par secondes (contre 62.8 sans délai).
+
+
 
 **4.3 Set a delay of 2500 milliseconds on `s1`. Same than previous step.**
 
 ![](./assets/img/task4_3_1.png)
 
-Nous observons que s1 ne reçoit plus aucune requête et que toutes les requêtes sont redirigées vers s2. (Explications dans le point suivant)
+Nous observons que `s1` ne reçoit plus aucune requête et que toutes les requêtes sont redirigées vers `s2`. 
+
+
 
 **4.4 In the two previous steps, are there any errors? Why?**
 
-On ne voit pas d'erreur directement dans JMeter, mais si on regarde dans les outputs de docker-compose on peut voir un message d'erreur nous indiquant qu'il considère s1 comme étant down. Cela s'explique par le fait que la durée de vérification (2001ms) est plus courte que la durée du délai que nous avons configuré. Par ce fait toutes les requêtes sont redirigées sur s2.
+On ne voit pas d'erreur directement dans JMeter, mais si on regarde dans les outputs de docker-compose on peut voir un message d'erreur nous indiquant qu'il considère `s1` comme étant down. Cela s'explique par le fait que la durée de vérification (2001ms) est plus courte que la durée du délai que nous avons configuré. Par ce fait, toutes les requêtes sont redirigées sur `s2`.
 
-Voici l'erreur retournée : `[WARNING] 340/142844 (10) : Server nodes/s1 is DOWN, reason: Layer7 timeout, check duration: 2001ms. 1 active and 0 backup servers left. 1 sessions active, 0 requeued, 0 remaining in queue.`
+Voici l'erreur retournée : 
+
+```
+[WARNING] 340/142844 (10) : Server nodes/s1 is DOWN, reason: Layer7 timeout, check duration: 2001ms. 1 active and 0 backup servers left. 1 sessions active, 0 requeued, 0 remaining in queue.
+```
+
+
 
 **4.5 Update the HAProxy configuration to add a weight to your nodes. For that, add `weight [1-256]` where the value of weight is between the two values (inclusive). Set `s1` to 2 and `s2` to 1. Redo a run with a 250ms delay.**
 
@@ -360,13 +401,17 @@ server s2 ${WEBAPP_2_IP}:3000 check cookie s2 weight 1
 
 ![](./assets/img/task4_5_1.png)
 
-Comme il n'y a que deux threads et qu'il y a une schedulin policy Round robin, un utilisateur sera envoyé sur chaque serveur et dans ce cas là nous n'observons pas l'impact du poids.
+Comme il n'y a que deux threads et qu'il y a une scheduling policy Round Robin, un utilisateur sera envoyé sur chaque serveur et dans ce cas là nous n'observons pas l'impact du poids.
 
-**4.6 Now, what happens when the cookies are cleared between  each request and the delay is set to 250ms? We expect just one or two  sentence to summarize your observations of the behavior with/without  cookies.**
+
+
+**4.6 Now, what happens when the cookies are cleared between each request and the delay is set to 250ms? We expect just one or two sentence to summarize your observations of the behavior with/without  cookies.**
 
 ![](./assets/img/task4_6_1.png)
 
-Comme les cookies sont effacés entre chaque requête, chaque requête est considérée comme venant d'un nouvel utilisateur. Dans ce cas là, nous pouvons observer l'impact du poids des serveurs. Nous observons donc que dans 2/3 des cas les requêtes sont redirigées vers s1 et dans le tier restant vers s2.
+Comme les cookies sont effacés entre chaque requête, chaque requête est considérée comme venant d'un nouvel utilisateur. Dans ce cas là, nous pouvons observer l'impact du poids des serveurs. Nous observons donc que dans deux tiers des cas, les requêtes sont redirigées vers `s1` et dans le tiers restant vers `s2`.
+
+
 
 ## Tâche 5 - Les stratégies de load balancing
 
@@ -376,20 +421,14 @@ Comme les cookies sont effacés entre chaque requête, chaque requête est consi
 
 **5.1 Briefly explain the strategies you have chosen and why you have chosen them.**
 
-```
-  leastconn   The server with the lowest number of connections receives the
-              connection. Round-robin is performed within groups of servers
-              of the same load to ensure that all servers will be used. This
-              algorithm is dynamic, which means that server weights may be
-              adjusted on the fly for slow starts for instance.
-              
-  random      A random number will be used as the key for the consistent
-              hashing function. This means that the servers' weights are
-              respected, dynamic weight changes immediately take effect, as
-              well as new server additions. This algorithm is also known as
-              the Power of Two Random Choices and is described here :
-              http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
-```
+Nous avons choisi d'utiliser les stratégies suivantes : 
+
+- `leastconn` : le serveur avec le nombre de connexions le plus bas reçoit la connexion. La stratégie Round Robin est utilisée dans les groupes de serveurs avec le même nombre de connexions pour s'assurer que tous les serveurs sont utilisés. Les poids des serveurs peuvent être ajustés à la volée. 
+- `random` : un nombre aléatoire est utilisé comme clé pour obtenir une fonction de hachage cohérente, les poids des serveurs sont respectés et une modification dans ces poids sera directement prise en compte (tout comme des ajouts de serveurs). 
+
+Nous avons choisi ces stratégies car la stratégie `leastconn` nous semble intéressante pour que les serveurs soient tous utilisés de manière équitable (cela éviterait une surcharge sur un serveur) et la stratégie `random` est intéressante à étudier pour déterminer si les serveurs sont réellement utilisés de manière aléatoire. 
+
+
 
 **5.2 Provide evidence that you have played with the two strategies (configuration done, screenshots)**
 
@@ -416,7 +455,7 @@ Nous avons lancé le script `tester.jmx` sur JMeter avec deux threads et 500 req
 
 ![](assets/img/task5_2_leastconn250.png)
 
-Nous constatons que la node `s1` a reçu moins de requêtes (172), car elle mettait plus de temps à répondre. Le load balancer répartit alors les requêtes sur la node `s2` qui est disponible. 
+Nous constatons que la node `s1` a reçu moins de requêtes (172), car elle mettait plus de temps à répondre. Le load balancer répartit alors les requêtes sur la node `s2` qui est plus disponible. 
 
 Avec un delay de 500 ms, nous avons obtenu le résultat suivant : 
 
@@ -424,11 +463,13 @@ Avec un delay de 500 ms, nous avons obtenu le résultat suivant :
 
 Seules 64 requêtes ont été dirigées vers la node `s1`. 
 
-Nous avons ensuite essayé d'ajouter un delay plus grand, c'est-à-dire 1000 ms : 
+Avec un delay de 1000 ms : 
 
 ![](assets/img/task5_2-leastconn.png)
 
 Lorsque nous augmentons le delay en le doublant, nous constatons que la node `s1` reçoit quasiment deux fois moins de requêtes, car elle est deux fois plus lente à répondre. Avec un delay de 1000 ms, elle reçoit 36 requêtes, soit deux fois moins qu'avec un delay de 500 ms (64 reçues). 
+
+
 
 **5.2.2 `random`**
 
@@ -450,18 +491,25 @@ Nous avons fait plusieurs essais avec JMeter pour tester si les nodes sont réel
 | ![](assets/img/task5_2_try3.png)  |
 | ![](assets/img/task_5-2_try1.png) |
 
+
+
 **5.3 Compare the two strategies and conclude which is the best for this lab (not necessary the best at all).**
 
-Le scheduling leastconn est plus adapté à des situations ou la durée de la session est longue (LDAP, SQL, TSE,...) mais moins à des cas comme http.
-Random quand à lui est plus adapté dans les cas ou le  nombre de serveurs est grand et dans un cas ou des serveurs sont fréquement ajoutés ou retirés.
-Dans notre cas leastconn serait plus adapté, il pourrait permettre de répartir la charge sur les serveurs plus uniformément dans le cas ou certaines requêtes arrivent avec du délai.
+La stratégie `leastconn` est plus adaptée à des situations où la durée de la session est longue (LDAP, SQL, TSE, ...) mais moins à des cas comme HTTP.
+
+La stratégie `random`, quand à elle, est plus adaptée dans les cas où le  nombre de serveurs est grand et dans un cas où des serveurs sont fréquement ajoutés ou retirés. 
+
+Dans notre cas, `leastconn` serait plus adaptée, elle pourrait permettre de répartir la charge sur les serveurs plus uniformément au cas où certaines requêtes arrivent avec du délai.
+
+
 
 ## Conclusion 
 
-Nous avons appris comment configurer un load-balancer et comment celui-ci réagit à différentes situations (un serveur est down, certaines requêtes arrivent avec du délai, ...).
+Dans le cadre de ce laboratoire, nous avons pu étudier différentes sortes de cookies (SERVERID, NODESESSID) et constater leur fonctionnement. Nous avons découvert l'outil JMeter et nous avons pu l'utiliser de manière pratique en lançant un script avec et en manipulant les différents paramètres (nombre de threads, nombre de requêtes, réinitialisation des cookies, ...). 
 
-Nous avons aussi appris à utiliser le load-balancer avec différentes scheduling policy.
+Nous avons appris comment configurer un load-balancer et comment celui-ci réagit à différentes situations (un serveur est down, certaines requêtes arrivent avec du délai, ...). Nous avons pu jouer avec les différents modes de HAProxy (MAINT, READY, DRAIN) pour étudier leurs effets sur le load-balancer. 
 
-Ce fut long mais ce fut fun. 
+Nous avons eu l'occasion d'étudier différentes politiques de scheduling et de les implémenter pour les voir en action sur le load-balancer.
 
-Bonnes fêtes de fin d'année
+Ce laboratoire nous a permis d'appliquer de manière pratique et de mieux comprendre le rôle d'un load-balancer et les différentes façons de l'utiliser. 
+
